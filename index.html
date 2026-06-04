@@ -1,1 +1,596 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>StreamMA — Streaming Communication in Multi-Agent Reasoning</title>
+<meta name="description" content="StreamMA: a reasoning-step-level streaming protocol for multi-agent LLMs. Less waiting, yet better reasoning." />
 
+<!-- Open Graph / Facebook -->
+<meta property="og:type" content="article" />
+<meta property="og:title" content="StreamMA — Streaming Communication in Multi-Agent Reasoning" />
+<meta property="og:description" content="Step-level streaming for multi-agent LLMs. 26.9× speedup, +7.3 pp avg accuracy across 8 benchmarks." />
+<meta property="og:image" content="static/images/og-card.png" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+
+<!-- Twitter Card -->
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="StreamMA — Streaming Communication in Multi-Agent Reasoning" />
+<meta name="twitter:description" content="Step-level streaming for multi-agent LLMs. 26.9× speedup, +7.3 pp avg accuracy across 8 benchmarks." />
+<meta name="twitter:image" content="static/images/og-card.png" />
+
+<link rel="icon" type="image/svg+xml" href="static/images/favicon.svg?v=13" />
+
+<!-- Bulma + Google Fonts -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Serif:ital,wght@0,400;0,600;1,400&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+
+<!-- MathJax for theorem formulae -->
+<script>
+window.MathJax = {
+  tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] },
+  options: {
+    ignoreHtmlClass: 'mathjax_ignore|tex2jax_ignore',
+    processHtmlClass: 'mathjax_process|tex2jax_process'
+  }
+};
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js" async></script>
+
+<link rel="stylesheet" href="static/css/style.css?v=12" />
+</head>
+
+<body>
+
+<!-- ================== HERO ================== -->
+<section class="hero-banner">
+  <h1 class="hero-title"><img src="static/images/favicon.svg?v=13" alt="" class="hero-logo" /><span class="accent">Stream</span>MA</h1>
+  <p class="hero-subtitle">Streaming Communication in Multi-Agent Reasoning</p>
+
+  <p class="author-list">
+    <a href="https://zhenyangcs.github.io/">Zhen&nbsp;Yang</a><sup>1</sup> ·
+    <a href="https://xuxiaogang.com/">Xiaogang&nbsp;Xu</a><sup>3</sup> ·
+    <a href="https://encounter1997.github.io/">Wen&nbsp;Wang</a><sup>3</sup> ·
+    <a href="https://scholar.google.com/citations?user=kwDXTpAAAAAJ&hl=en">Cong&nbsp;Chen</a><sup>3</sup> ·
+    <a href="https://xander23333.github.io/">Xander&nbsp;Xu</a><sup>2*</sup> ·
+    <a href="https://scholar.google.com/citations?user=n7j4bJUAAAAJ&hl=en">Ying-Cong&nbsp;Chen</a><sup>1,4*</sup>
+  </p>
+  <p class="affiliation">
+    <sup>1</sup>HKUST(GZ) ·
+    <sup>2</sup>Alibaba Group ·
+    <sup>3</sup>ZJU ·
+    <sup>4</sup>HKUST
+  </p>
+  <p class="contact">
+    <sup>*</sup>Co-corresponding authors
+  </p>
+
+  <div class="link-buttons">
+    <a class="button" href="#">
+      <span class="icon">📄</span><span>Paper (arXiv)</span>
+    </a>
+    <a class="button" href="https://github.com/EnVision-Research/StreamMA" target="_blank" rel="noopener">
+      <span class="icon">💻</span><span>Code</span>
+    </a>
+    <a class="button" href="#hero-anim">
+      <span class="icon">🎬</span><span>Demo</span>
+    </a>
+    <a class="button" href="#bibtex">
+      <span class="icon">📚</span><span>BibTeX</span>
+    </a>
+    <a class="button" href="#" target="_blank" rel="noopener">
+      <span class="icon">📘</span><span>Zhihu</span>
+    </a>
+    <a class="button" href="#" target="_blank" rel="noopener">
+      <span class="icon">📕</span><span>RedNote</span>
+    </a>
+  </div>
+</section>
+
+<!-- ================== TL;DR CARDS ================== -->
+<!--
+  SimpleBench leaderboard hidden until full 213-question evaluation is available.
+  Currently only the 10-question public subset is accessible; will re-enable
+  once we get the full set from the authors after arXiv release.
+<div class="simplebench-highlight">
+  <div class="sb-header">🏆 SimpleBench — StreamMA sets new SOTA</div>
+  <div class="sb-list">
+    <div class="sb-row sb-ours"><span class="sb-rank">🥇</span><span class="sb-model">StreamMA (GPT-5.4-medium, A4 S4)</span><span class="sb-score">98.0%</span></div>
+    <div class="sb-row"><span class="sb-rank">1</span><span class="sb-model">Gemini 3.1 Pro Preview</span><span class="sb-score">79.6%</span></div>
+    <div class="sb-row"><span class="sb-rank">2</span><span class="sb-model">GPT-5.5 Pro</span><span class="sb-score">76.9%</span></div>
+    <div class="sb-row"><span class="sb-rank">3</span><span class="sb-model">Gemini 3 Pro Preview</span><span class="sb-score">76.4%</span></div>
+    <div class="sb-row"><span class="sb-rank">4</span><span class="sb-model">GPT-5.4 Pro</span><span class="sb-score">74.1%</span></div>
+    <div class="sb-row"><span class="sb-rank">5</span><span class="sb-model">GPT-5.5</span><span class="sb-score">69.0%</span></div>
+  </div>
+  <div class="sb-note">Source: <a href="https://epoch.ai/benchmarks/simplebench" target="_blank" rel="noopener">epoch.ai/benchmarks/simplebench</a> · StreamMA evaluated on 10 public questions, 5 runs avg.</div>
+</div>
+-->
+<div class="tldr-grid">
+  <div class="tldr-card">
+    <div class="tldr-num">+7.3<span class="unit"> pp</span></div>
+    <div class="tldr-label">average accuracy gain</div>
+    <div class="tldr-foot">8 benchmarks · Claude Opus 4.6 · peak +22.4 pp on HMMT 2026</div>
+  </div>
+  <div class="tldr-card">
+    <div class="tldr-num">26.9<span class="unit">×</span></div>
+    <div class="tldr-label">wall-clock speedup</div>
+    <div class="tldr-foot">A=64, S=64 · 83% of theoretical bound</div>
+  </div>
+  <div class="tldr-card">
+    <div class="tldr-num">½<span class="unit"> cost</span></div>
+    <div class="tldr-label">Stream×4 beats Serial×16</div>
+    <div class="tldr-foot">$2.75 vs $5.46 · higher accuracy at half the price</div>
+  </div>
+</div>
+
+<!-- ================== KEY CONTRIBUTIONS ================== -->
+<div class="contributions-box">
+  <h3 class="contributions-heading">🎯 Key Contributions</h3>
+  <div class="contributions-items">
+    <div class="contrib-item">
+      <span class="contrib-icon">📡</span>
+      <div><strong>Streaming protocol</strong><br>Step-level forwarding replaces waiting for full responses — lower latency <em>and</em> higher accuracy.</div>
+    </div>
+    <div class="contrib-item">
+      <span class="contrib-icon">📐</span>
+      <div><strong>Three closed-form theorems</strong><br>Effectiveness ordering, speedup upper bound, and cost ratio for Stream / Serial / Single.</div>
+    </div>
+    <div class="contrib-item">
+      <span class="contrib-icon">🚀</span>
+      <div><strong>Step-level scaling law</strong><br>A new orthogonal dimension: more steps per agent → better accuracy + higher speedup.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ================== HERO ANIMATION ================== -->
+<section id="hero-anim" class="section-block">
+  <h2 class="section-title">Stream vs Serial — see the pipeline in action</h2>
+  <p class="section-sub">Four agents on real HMMT 2026 runs (GPT-5.4-medium).</p>
+
+  <div class="hero-anim-wrap">
+    <svg id="hero-timeline-svg" class="hero-anim-svg" preserveAspectRatio="xMidYMid meet" aria-label="Stream vs Serial timeline animation"></svg>
+    <div class="hero-anim-toggle">
+      <button data-topo="chain" class="active">Chain</button>
+      <button data-topo="tree">Tree</button>
+      <button data-topo="graph">Graph</button>
+    </div>
+    <div class="hero-anim-controls">
+      <button id="hero-anim-pause" type="button" aria-label="Pause/Play animation" title="Pause / Play">⏸</button>
+      <input id="hero-anim-slider" type="range" min="0" max="1000" value="0" step="1" aria-label="Animation progress" />
+      <span id="hero-anim-time" aria-live="polite">0%</span>
+    </div>
+    <p class="hero-anim-caption">
+      Random sample speedup: <strong>Graph 1.92×</strong> · <strong>Chain 1.84×</strong> · <strong>Tree 1.82×</strong>.
+    </p>
+  </div>
+</section>
+
+<div class="divider-rule"></div>
+
+<!-- ================== ABSTRACT ================== -->
+<section id="abstract" class="section-block">
+  <h2 class="section-title">Abstract</h2>
+  <div class="abstract-content">
+    <p>
+      Multi-agent reasoning systems adopt a <em>generate-then-transfer</em> paradigm
+      that forces end-to-end latency to scale linearly with pipeline depth.
+      We introduce <strong>StreamMA</strong>, a multi-agent reasoning system that
+      streams each <em>reasoning step</em> to downstream agents as soon as it is
+      generated, pipelining adjacent agents and thus reducing latency.
+    </p>
+    <p>
+      Surprisingly, this pipelining also <em>improves effectiveness</em>: because
+      multi-step reasoning quality is non-uniform and early steps are more reliable
+      than later ones, working with these reliable early steps instead of the full
+      chain prevents error-prone late steps from misleading downstream agents.
+      We formalise both advantages with the first closed-form joint analysis of
+      stream, serial, and single protocols, deriving the effectiveness ordering,
+      speedup upper bound, and cost ratio.
+    </p>
+    <p>
+      Across eight reasoning benchmarks spanning mathematics, science, and code,
+      two frontier LLMs (Claude Opus 4.6 and GPT-5.4), and three topologies
+      (Chain, Tree, Graph), <strong>StreamMA</strong> outperforms both baselines
+      (avg. <strong>+7.3&nbsp;pp</strong>, max <strong>+22.4&nbsp;pp</strong> on
+      HMMT 2026 with Claude Opus 4.6-high).
+    </p>
+    <p>
+      We further uncover a
+      <em>step-level scaling law</em>: increasing per-agent steps consistently
+      improves both effectiveness and efficiency, a new scaling dimension
+      orthogonal to and composable with agent-count scaling.
+    </p>
+  </div>
+</section>
+
+<div class="divider-rule"></div>
+
+<!-- ================== INSIGHT ================== -->
+<section id="insight" class="section-block">
+  <h2 class="section-title">The counter-intuitive finding</h2>
+  <p class="section-sub">When context arrives matters more than how much context arrives.</p>
+
+  <div class="insight-grid">
+    <!-- Serial -->
+    <div class="insight-panel serial">
+      <h4>Serial — sees the whole upstream output</h4>
+      <p style="font-size:0.92rem;color:var(--ink-soft);margin-bottom:0.5rem;">
+        Agent² waits until Agent¹ finishes all steps, then reads the full chain
+        — including the error-prone tail — and inherits its mistakes.
+      </p>
+      <svg viewBox="0 0 390 120" style="width:100%;height:auto;">
+        <g font-family="Inter,sans-serif">
+          <!-- Agent¹ label -->
+          <text x="0" y="22" font-size="11" font-weight="700" fill="#4f6f9a">Agent¹</text>
+          <!-- 4 step blocks: 1✓ + 3✗ -->
+          <g transform="translate(52,6)">
+            <g><rect width="40" height="22" rx="3" fill="#dcfce7" stroke="#166534"/><text x="20" y="15" text-anchor="middle" fill="#166534" font-size="11" font-weight="700">✓</text></g>
+            <g transform="translate(44,0)"><rect width="40" height="22" rx="3" fill="#fee2e2" stroke="#b91c1c"/><text x="20" y="15" text-anchor="middle" fill="#b91c1c" font-size="11" font-weight="700">✗</text></g>
+            <g transform="translate(88,0)"><rect width="40" height="22" rx="3" fill="#fee2e2" stroke="#b91c1c"/><text x="20" y="15" text-anchor="middle" fill="#b91c1c" font-size="11" font-weight="700">✗</text></g>
+            <g transform="translate(132,0)"><rect width="40" height="22" rx="3" fill="#fee2e2" stroke="#b91c1c"/><text x="20" y="15" text-anchor="middle" fill="#b91c1c" font-size="11" font-weight="700">✗</text></g>
+          </g>
+          <!-- Transfer arrow -->
+          <defs>
+            <marker id="arrSer" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#4f6f9a"/></marker>
+          </defs>
+          <!-- Dashed annotation: all steps at once (from end of last Agent¹ block to Agent² start) -->
+          <path d="M224 28 L258 60" stroke="#4f6f9a" stroke-width="1.4" stroke-dasharray="3 2" marker-end="url(#arrSer)"/>
+          <text x="236" y="48" font-size="8.5" fill="#4f6f9a" font-style="italic">all steps at once</text>
+          <!-- Agent² row -->
+          <text x="0" y="74" font-size="11" font-weight="700" fill="#4f6f9a">Agent²</text>
+          <!-- idle dashed region -->
+          <rect x="52" y="60" width="200" height="22" rx="4" fill="none" stroke="#cbd5e1" stroke-dasharray="4 3"/>
+          <text x="100" y="74" font-size="9" fill="#b0b8c4" font-style="italic">⏳ blocked</text>
+          <!-- reads all: short red bar -->
+          <rect x="258" y="60" width="82" height="22" rx="4" fill="#fee2e2" stroke="#f87171"/>
+          <text x="266" y="74" font-size="8.5" fill="#b91c1c" font-weight="600">reads all → ✗</text>
+          <!-- Result -->
+          <text x="348" y="74" font-size="12" font-weight="700" fill="#c0392b">✗</text>
+        </g>
+      </svg>
+      <div class="insight-verdict wrong">Agent² answer: ✗ wrong</div>
+    </div>
+
+    <!-- Stream -->
+    <div class="insight-panel stream">
+      <h4>Stream — sees the reliable head first</h4>
+      <p style="font-size:0.92rem;color:var(--ink-soft);margin-bottom:0.5rem;">
+        Agent² starts reasoning after step 1; by the time the bad tail arrives,
+        it has formed its own trajectory and the tail's impact is diluted.
+      </p>
+      <svg viewBox="0 0 390 120" style="width:100%;height:auto;">
+        <g font-family="Inter,sans-serif">
+          <!-- Agent¹ label -->
+          <text x="0" y="22" font-size="11" font-weight="700" fill="#2f9e6e">Agent¹</text>
+          <!-- 4 step blocks: 1✓ + 3✗ (all visible — they DO get generated) -->
+          <g transform="translate(52,6)">
+            <g><rect width="40" height="22" rx="3" fill="#dcfce7" stroke="#166534"/><text x="20" y="15" text-anchor="middle" fill="#166534" font-size="11" font-weight="700">✓</text></g>
+            <g transform="translate(44,0)"><rect width="40" height="22" rx="3" fill="#fee2e2" stroke="#b91c1c"/><text x="20" y="15" text-anchor="middle" fill="#b91c1c" font-size="11" font-weight="700">✗</text></g>
+            <g transform="translate(88,0)"><rect width="40" height="22" rx="3" fill="#fee2e2" stroke="#b91c1c"/><text x="20" y="15" text-anchor="middle" fill="#b91c1c" font-size="11" font-weight="700">✗</text></g>
+            <g transform="translate(132,0)"><rect width="40" height="22" rx="3" fill="#fee2e2" stroke="#b91c1c"/><text x="20" y="15" text-anchor="middle" fill="#b91c1c" font-size="11" font-weight="700">✗</text></g>
+          </g>
+          <!-- Transfer arrows (diagonal slashes) -->
+          <defs><marker id="arrStr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#2f9e6e"/></marker>
+          <marker id="arrStrFade" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="4" markerHeight="4" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#999" opacity="0.5"/></marker></defs>
+          <!-- step 1 arrow: diagonal slash from Agent¹ block 1 to Agent² block 1 -->
+          <path d="M72 28 L96 64" stroke="#2f9e6e" stroke-width="1.8" stroke-dasharray="3 2" marker-end="url(#arrStr)"/>
+          <text x="50" y="50" font-size="8.5" fill="#2f9e6e" font-style="italic">step 1 forwarded</text>
+          <!-- Later steps arrows: diagonal slashes, fading -->
+          <path d="M116 28 L140 64" stroke="#999" stroke-width="1" stroke-dasharray="3 2" opacity="0.45" marker-end="url(#arrStrFade)"/>
+          <path d="M160 28 L184 64" stroke="#999" stroke-width="1" stroke-dasharray="3 2" opacity="0.35" marker-end="url(#arrStrFade)"/>
+          <path d="M204 28 L228 64" stroke="#999" stroke-width="1" stroke-dasharray="3 2" opacity="0.25" marker-end="url(#arrStrFade)"/>
+          <!-- Agent² row -->
+          <text x="0" y="80" font-size="11" font-weight="700" fill="#2f9e6e">Agent²</text>
+          <!-- 4 step blocks matching Agent¹ style: all ✓ (Stream agent succeeds) -->
+          <g transform="translate(96,66)">
+            <g><rect width="40" height="22" rx="3" fill="#dcfce7" stroke="#166534"/><text x="20" y="15" text-anchor="middle" fill="#166534" font-size="11" font-weight="700">✓</text></g>
+            <g transform="translate(44,0)"><rect width="40" height="22" rx="3" fill="#dcfce7" stroke="#166534"/><text x="20" y="15" text-anchor="middle" fill="#166534" font-size="11" font-weight="700">✓</text></g>
+            <g transform="translate(88,0)"><rect width="40" height="22" rx="3" fill="#dcfce7" stroke="#166534"/><text x="20" y="15" text-anchor="middle" fill="#166534" font-size="11" font-weight="700">✓</text></g>
+            <g transform="translate(132,0)"><rect width="40" height="22" rx="3" fill="#dcfce7" stroke="#166534"/><text x="20" y="15" text-anchor="middle" fill="#166534" font-size="11" font-weight="700">✓</text></g>
+          </g>
+          <!-- Annotation below -->
+          <text x="92" y="103" font-size="7.5" fill="#6b7280" font-style="italic">all 4 steps received, but early momentum means errors can't derail the trajectory</text>
+        </g>
+      </svg>
+      <div class="insight-verdict right">Agent² answer: ✓ correct</div>
+    </div>
+  </div>
+</section>
+
+<div class="divider-rule"></div>
+
+<!-- ================== THEORY ================== -->
+<section id="theory" class="section-block">
+  <h2 class="section-title">Three closed-form theorems</h2>
+  <p class="section-sub">
+    The first joint analysis of Stream, Serial and Single protocols.<br>
+    One ordering for effectiveness, one upper bound for speed, one ratio for cost.
+  </p>
+
+  <!-- Theorem tab buttons -->
+  <div class="theorem-tabs">
+    <button class="theorem-tab active" data-panel="thm1">
+      <span class="theorem-tag">Theorem 1</span> Effectiveness Ordering
+    </button>
+    <button class="theorem-tab" data-panel="thm2">
+      <span class="theorem-tag">Theorem 2</span> Speedup Upper Bound
+    </button>
+    <button class="theorem-tab" data-panel="thm3">
+      <span class="theorem-tag">Theorem 3</span> Cost Ratio
+    </button>
+  </div>
+
+  <!-- Theorem panels -->
+  <div class="theorem-panels">
+    <div class="theorem-panel active" id="thm1">
+      <p class="theorem-brief">Six regimes; predicts when Stream / Serial / Single wins.</p>
+      <p style="font-size:0.88rem;color:var(--ink-soft);margin-bottom:0.5rem;">Depending on how $\bar{p}$, $p_{\mathrm{head}}$, $p_{\mathrm{tail}}$ compare to $p^*$, the sCorr ordering falls into six cases:</p>
+      <div class="regime-grid" id="regime-grid">
+        <div class="regime-mini active" data-id="Ia"><svg viewBox="0 0 62 30" width="100%"><line x1="3" y1="22" x2="50" y2="22" stroke="#94a3b8" stroke-width="0.6"/><line x1="3" y1="14" x2="50" y2="14" stroke="#94a3b8" stroke-width="0.5" stroke-dasharray="2 2"/><text x="54" y="15.4" font-size="5" fill="#64748b" font-style="italic" font-weight="700">p*</text><polyline points="6,8 16,8 26,8 36,22 46,22" fill="none" stroke="#1f6fb2" stroke-width="1.1" opacity="0.55"/><text x="6" y="8" text-anchor="middle" dominant-baseline="central" font-size="7" fill="#176c4d" font-weight="800">✓</text><text x="16" y="8" text-anchor="middle" dominant-baseline="central" font-size="7" fill="#176c4d" font-weight="800">✓</text><text x="26" y="8" text-anchor="middle" dominant-baseline="central" font-size="7" fill="#176c4d" font-weight="800">✓</text><text x="36" y="22" text-anchor="middle" dominant-baseline="central" font-size="7" fill="#c0392b" font-weight="800">✗</text><text x="46" y="22" text-anchor="middle" dominant-baseline="central" font-size="7" fill="#c0392b" font-weight="800">✗</text></svg><div class="lbl">I.a</div></div>
+        <div class="regime-mini" data-id="Ib"><svg viewBox="0 0 62 30" width="100%"><line x1="3" y1="22" x2="50" y2="22" stroke="#94a3b8" stroke-width="0.6"/><line x1="3" y1="14" x2="50" y2="14" stroke="#94a3b8" stroke-width="0.5" stroke-dasharray="2 2"/><text x="54" y="15.4" font-size="5" fill="#64748b" font-style="italic" font-weight="700">p*</text><polyline points="6,8 16,8 26,22 36,22 46,22" fill="none" stroke="#1f6fb2" stroke-width="1.1" opacity="0.55"/><text x="6" y="8" text-anchor="middle" dominant-baseline="central" font-size="7" fill="#176c4d" font-weight="800">✓</text><text x="16" y="8" text-anchor="middle" dominant-baseline="central" font-size="7" fill="#176c4d" font-weight="800">✓</text><text x="26" y="22" text-anchor="middle" dominant-baseline="central" font-size="7" fill="#c0392b" font-weight="800">✗</text><text x="36" y="22" text-anchor="middle" dominant-baseline="central" font-size="7" fill="#c0392b" font-weight="800">✗</text><text x="46" y="22" text-anchor="middle" dominant-baseline="central" font-size="7" fill="#c0392b" font-weight="800">✗</text></svg><div class="lbl">I.b</div></div>
+        <div class="regime-mini" data-id="IIa"><svg viewBox="0 0 62 30" width="100%"><line x1="3" y1="22" x2="50" y2="22" stroke="#94a3b8" stroke-width="0.6"/><line x1="3" y1="14" x2="50" y2="14" stroke="#94a3b8" stroke-width="0.5" stroke-dasharray="2 2"/><text x="54" y="15.4" font-size="5" fill="#64748b" font-style="italic" font-weight="700">p*</text><polyline points="6,8 16,8 26,8 36,8 46,8" fill="none" stroke="#1f6fb2" stroke-width="1.1" opacity="0.55"/><text x="6" y="8" text-anchor="middle" dominant-baseline="central" font-size="7" fill="#176c4d" font-weight="800">✓</text><text x="16" y="8" text-anchor="middle" dominant-baseline="central" font-size="7" fill="#176c4d" font-weight="800">✓</text><text x="26" y="8" text-anchor="middle" dominant-baseline="central" font-size="7" fill="#176c4d" font-weight="800">✓</text><text x="36" y="8" text-anchor="middle" dominant-baseline="central" font-size="7" fill="#176c4d" font-weight="800">✓</text><text x="46" y="8" text-anchor="middle" dominant-baseline="central" font-size="7" fill="#176c4d" font-weight="800">✓</text></svg><div class="lbl">II.a</div></div>
+        <div class="regime-mini" data-id="IIb"><svg viewBox="0 0 62 30" width="100%"><line x1="3" y1="22" x2="50" y2="22" stroke="#94a3b8" stroke-width="0.6"/><line x1="3" y1="14" x2="50" y2="14" stroke="#94a3b8" stroke-width="0.5" stroke-dasharray="2 2"/><text x="54" y="15.4" font-size="5" fill="#64748b" font-style="italic" font-weight="700">p*</text><polyline points="6,22 16,22 26,8 36,8 46,8" fill="none" stroke="#1f6fb2" stroke-width="1.1" opacity="0.55"/><text x="6" y="22" text-anchor="middle" dominant-baseline="central" font-size="7" fill="#c0392b" font-weight="800">✗</text><text x="16" y="22" text-anchor="middle" dominant-baseline="central" font-size="7" fill="#c0392b" font-weight="800">✗</text><text x="26" y="8" text-anchor="middle" dominant-baseline="central" font-size="7" fill="#176c4d" font-weight="800">✓</text><text x="36" y="8" text-anchor="middle" dominant-baseline="central" font-size="7" fill="#176c4d" font-weight="800">✓</text><text x="46" y="8" text-anchor="middle" dominant-baseline="central" font-size="7" fill="#176c4d" font-weight="800">✓</text></svg><div class="lbl">II.b</div></div>
+        <div class="regime-mini" data-id="IIIa"><svg viewBox="0 0 62 30" width="100%"><line x1="3" y1="22" x2="50" y2="22" stroke="#94a3b8" stroke-width="0.6"/><line x1="3" y1="14" x2="50" y2="14" stroke="#94a3b8" stroke-width="0.5" stroke-dasharray="2 2"/><text x="54" y="15.4" font-size="5" fill="#64748b" font-style="italic" font-weight="700">p*</text><polyline points="6,22 16,22 26,22 36,22 46,22" fill="none" stroke="#1f6fb2" stroke-width="1.1" opacity="0.55"/><text x="6" y="22" text-anchor="middle" dominant-baseline="central" font-size="7" fill="#c0392b" font-weight="800">✗</text><text x="16" y="22" text-anchor="middle" dominant-baseline="central" font-size="7" fill="#c0392b" font-weight="800">✗</text><text x="26" y="22" text-anchor="middle" dominant-baseline="central" font-size="7" fill="#c0392b" font-weight="800">✗</text><text x="36" y="22" text-anchor="middle" dominant-baseline="central" font-size="7" fill="#c0392b" font-weight="800">✗</text><text x="46" y="22" text-anchor="middle" dominant-baseline="central" font-size="7" fill="#c0392b" font-weight="800">✗</text></svg><div class="lbl">III.a</div></div>
+        <div class="regime-mini" data-id="IIIb"><svg viewBox="0 0 62 30" width="100%"><line x1="3" y1="22" x2="50" y2="22" stroke="#94a3b8" stroke-width="0.6"/><line x1="3" y1="14" x2="50" y2="14" stroke="#94a3b8" stroke-width="0.5" stroke-dasharray="2 2"/><text x="54" y="15.4" font-size="5" fill="#64748b" font-style="italic" font-weight="700">p*</text><polyline points="6,22 16,22 26,22 36,8 46,8" fill="none" stroke="#1f6fb2" stroke-width="1.1" opacity="0.55"/><text x="6" y="22" text-anchor="middle" dominant-baseline="central" font-size="7" fill="#c0392b" font-weight="800">✗</text><text x="16" y="22" text-anchor="middle" dominant-baseline="central" font-size="7" fill="#c0392b" font-weight="800">✗</text><text x="26" y="22" text-anchor="middle" dominant-baseline="central" font-size="7" fill="#c0392b" font-weight="800">✗</text><text x="36" y="8" text-anchor="middle" dominant-baseline="central" font-size="7" fill="#176c4d" font-weight="800">✓</text><text x="46" y="8" text-anchor="middle" dominant-baseline="central" font-size="7" fill="#176c4d" font-weight="800">✓</text></svg><div class="lbl">III.b</div></div>
+      </div>
+      <div class="regime-detail" id="regime-detail"><strong>I.a — Stream advantage (error accumulation).</strong> $\mathrm{sCorr}^{\mathrm{stream}} > \mathrm{sCorr}^{\mathrm{serial}} > \mathrm{sCorr}^{\mathrm{single}}$</div>
+    </div>
+
+    <div class="theorem-panel" id="thm2">
+      <p class="theorem-brief">Closed-form speedup upper bound; <strong>26.9×</strong> measured at <em>A=S=</em>64 (83% of the theoretical limit).</p>
+      <div class="theorem-formula">$\displaystyle \mathrm{Speedup} \le \frac{A\bigl[(S+r_{po})\,r_{v_{dp}} + S\bigr]}{(S+A-1)(1 + \alpha\,r_{v_{dp}} + \beta\,r_{v_{dc}})}$</div>
+      <p class="theorem-note">When decode ≫ prefill ($r_{v_{dp}}\!\to\!0$), reduces to $\mathrm{Speedup} \le \tfrac{AS}{S+A-1}$<br><strong>S=64, A=64 → 32.3× theoretical, 26.9× measured (83%)</strong>.</p>
+    </div>
+
+    <div class="theorem-panel" id="thm3">
+      <p class="theorem-brief">Exact cost formula; Stream saves ≈7.5% at ρ=1.</p>
+      <div class="theorem-formula">$\displaystyle \frac{C^{\mathrm{stream}}}{C^{\mathrm{serial}}} = \rho \cdot \frac{r_{c_{pd}}\,(\alpha + r_{c_{cp}}\,\beta) + 1}{r_{c_{pd}}\,(1 + r_{po}/S) + 1}$</div>
+      <p class="theorem-note mathjax_ignore">Claude Opus 4.6 pricing: <strong><span>&#36;5</span>&nbsp;/&nbsp;<span>&#36;25</span>&nbsp;/&nbsp;<span>&#36;0.5</span></strong> per MTok (input&nbsp;/&nbsp;output&nbsp;/&nbsp;cache), <em>A</em>=<em>S</em>=4.<br>Bound = <strong>0.925ρ</strong> with full KV-cache &mdash; <strong>saves ≈7.5% even at ρ=1</strong>.</p>
+    </div>
+  </div>
+
+  <script>
+    // Theorem tab switching
+    (function () {
+      document.querySelectorAll('.theorem-tab').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.theorem-tab').forEach(b => b.classList.remove('active'));
+          document.querySelectorAll('.theorem-panel').forEach(p => p.classList.remove('active'));
+          btn.classList.add('active');
+          const panel = document.getElementById(btn.dataset.panel);
+          if (panel) panel.classList.add('active');
+          if (window.MathJax && window.MathJax.typesetPromise) window.MathJax.typesetPromise([panel]);
+        });
+      });
+      // Regime detail toggler inside theorem 1
+      const detail = document.getElementById('regime-detail');
+      if (!detail) return;
+      const text = {
+        Ia:   "<strong>I.a — Stream advantage (error accumulation).</strong> $\\mathrm{sCorr}^{\\mathrm{stream}} > \\mathrm{sCorr}^{\\mathrm{serial}} > \\mathrm{sCorr}^{\\mathrm{single}}$",
+        Ib:   "<strong>I.b — Stream advantage (error accumulation).</strong> $\\mathrm{sCorr}^{\\mathrm{stream}} > \\mathrm{sCorr}^{\\mathrm{single}} > \\mathrm{sCorr}^{\\mathrm{serial}}$",
+        IIa:  "<strong>II.a — Serial advantage (all good).</strong> $\\mathrm{sCorr}^{\\mathrm{serial}} > \\mathrm{sCorr}^{\\mathrm{stream}} > \\mathrm{sCorr}^{\\mathrm{single}}$",
+        IIb:  "<strong>II.b — Serial advantage (self-correcting).</strong> $\\mathrm{sCorr}^{\\mathrm{serial}} > \\mathrm{sCorr}^{\\mathrm{single}} > \\mathrm{sCorr}^{\\mathrm{stream}}$",
+        IIIa: "<strong>III.a — Single advantage (all bad).</strong> $\\mathrm{sCorr}^{\\mathrm{single}} > \\mathrm{sCorr}^{\\mathrm{stream}} > \\mathrm{sCorr}^{\\mathrm{serial}}$",
+        IIIb: "<strong>III.b — Single advantage.</strong> $\\mathrm{sCorr}^{\\mathrm{single}} > \\mathrm{sCorr}^{\\mathrm{serial}} > \\mathrm{sCorr}^{\\mathrm{stream}}$",
+      };
+      document.querySelectorAll('#regime-grid .regime-mini').forEach(el => {
+        el.addEventListener('click', () => {
+          document.querySelectorAll('#regime-grid .regime-mini').forEach(e => e.classList.remove('active'));
+          el.classList.add('active');
+          detail.innerHTML = text[el.dataset.id];
+          if (window.MathJax && window.MathJax.typesetPromise) window.MathJax.typesetPromise([detail]);
+        });
+      });
+    })();
+  </script>
+</section>
+
+<div class="divider-rule"></div>
+
+<div class="result-group-header">
+  <span class="result-group-label">Results &middot; Part 1</span>
+  <h3>Effectiveness — Stream is more accurate</h3>
+</div>
+
+<!-- ================== STEP-LEVEL PERTURBATION ================== -->
+<section id="perturb" class="section-block">
+  <h2 class="section-title">Step-level perturbation — head/tail asymmetry</h2>
+  <p class="section-sub">
+    Same upstream output, two failure modes: corrupting the tail leaves Stream untouched; corrupting the head trips it.<br>
+    The asymmetry is exactly what Theorem 1 predicts.
+  </p>
+
+  <div class="perturb-wrap">
+    <div class="perturb-callout">
+      <span class="left">Tail-perturbed → Stream up to <strong>+24.0&nbsp;pp</strong></span>
+      <span class="right">Head-perturbed → Stream down to <strong>−36.0&nbsp;pp</strong></span>
+    </div>
+    <svg id="perturb-svg" preserveAspectRatio="xMidYMid meet" style="width:100%;height:auto;"></svg>
+  </div>
+</section>
+
+<div class="divider-rule"></div>
+
+<!-- ================== MAIN RESULTS ================== -->
+<section id="results" class="section-block">
+  <h2 class="section-title">Main results — eight benchmarks, two LLMs, three topologies</h2>
+
+  <div class="results-table-wrap">
+    <table class="results-table">
+      <thead>
+        <tr>
+          <th>Model</th><th>Topo</th><th>Method</th>
+          <th>AIME25</th><th>AIME26</th><th>HMMT26</th>
+          <th>GPQA-D</th><th>HLE</th>
+          <th>LCB-G</th><th>LCB-E</th><th>LCB-T</th>
+          <th>Avg.</th>
+        </tr>
+      </thead>
+      <tbody>
+        <!-- Claude Opus 4.6 (high) -->
+        <tr><td class="model-cell" rowspan="7">Claude Opus 4.6 (high)</td>
+            <td>—</td><td class="method-cell">Single</td>
+            <td>67.50</td><td>60.00</td><td>48.11</td>
+            <td>83.67</td><td>18.60</td>
+            <td>90.25</td><td>77.94</td><td>84.31</td>
+            <td class="avg-col">66.30</td></tr>
+        <tr><td rowspan="2">Chain</td><td class="method-cell">Serial</td>
+            <td>80.42</td><td>72.08</td><td>63.26</td>
+            <td>85.86</td><td>23.90</td>
+            <td>91.33</td><td>78.64</td><td>92.38</td>
+            <td class="avg-col">73.48</td></tr>
+        <tr class="stream-row"><td class="method-cell">StreamMA</td>
+            <td>92.50</td><td>89.58</td><td>85.61</td>
+            <td>87.37</td><td>26.97</td>
+            <td>91.50</td><td>84.41</td><td>95.63</td>
+            <td class="avg-col">81.70</td></tr>
+        <tr><td rowspan="2">Tree</td><td class="method-cell">Serial</td>
+            <td>86.25</td><td>86.25</td><td>75.00</td>
+            <td>85.18</td><td>24.82</td>
+            <td>91.92</td><td>88.45</td><td>97.59</td>
+            <td class="avg-col">79.43</td></tr>
+        <tr class="stream-row"><td class="method-cell">StreamMA</td>
+            <td>93.34</td><td>87.92</td><td>82.20</td>
+            <td>85.86</td><td>25.07</td>
+            <td>94.00</td><td>94.57</td><td>99.55</td>
+            <td class="avg-col">82.81</td></tr>
+        <tr><td rowspan="2">Graph</td><td class="method-cell">Serial</td>
+            <td>77.92</td><td>71.67</td><td>61.75</td>
+            <td>85.69</td><td>22.17</td>
+            <td>90.08</td><td>75.78</td><td>98.27</td>
+            <td class="avg-col">72.92</td></tr>
+        <tr class="stream-row"><td class="method-cell">StreamMA</td>
+            <td>95.83</td><td>87.92</td><td>82.58</td>
+            <td>86.53</td><td>27.68</td>
+            <td>92.17</td><td>95.27</td><td>98.72</td>
+            <td class="avg-col">83.34</td></tr>
+        <!-- GPT-5.4 (medium) -->
+        <tr><td class="model-cell" rowspan="7">GPT-5.4 (medium)</td>
+            <td>—</td><td class="method-cell">Single</td>
+            <td>55.83</td><td>71.25</td><td>40.53</td>
+            <td>77.95</td><td>12.08</td>
+            <td>91.08</td><td>92.48</td><td>96.68</td>
+            <td class="avg-col">67.24</td></tr>
+        <tr><td rowspan="2">Chain</td><td class="method-cell">Serial</td>
+            <td>60.00</td><td>70.42</td><td>54.55</td>
+            <td>75.08</td><td>14.66</td>
+            <td>90.08</td><td>97.43</td><td>99.02</td>
+            <td class="avg-col">70.16</td></tr>
+        <tr class="stream-row"><td class="method-cell">StreamMA</td>
+            <td>61.25</td><td>72.50</td><td>59.10</td>
+            <td>80.30</td><td>14.94</td>
+            <td>91.17</td><td>99.30</td><td>99.47</td>
+            <td class="avg-col">72.25</td></tr>
+        <tr><td rowspan="2">Tree</td><td class="method-cell">Serial</td>
+            <td>59.17</td><td>75.83</td><td>56.07</td>
+            <td>76.77</td><td>14.83</td>
+            <td>88.33</td><td>93.81</td><td>99.25</td>
+            <td class="avg-col">70.51</td></tr>
+        <tr class="stream-row"><td class="method-cell">StreamMA</td>
+            <td>62.08</td><td>75.83</td><td>58.34</td>
+            <td>78.12</td><td>15.74</td>
+            <td>89.50</td><td>94.78</td><td>99.17</td>
+            <td class="avg-col">71.70</td></tr>
+        <tr><td rowspan="2">Graph</td><td class="method-cell">Serial</td>
+            <td>60.00</td><td>74.17</td><td>52.65</td>
+            <td>78.45</td><td>14.04</td>
+            <td>92.25</td><td>99.51</td><td>98.80</td>
+            <td class="avg-col">71.13</td></tr>
+        <tr class="stream-row"><td class="method-cell">StreamMA</td>
+            <td>62.50</td><td>75.42</td><td>56.44</td>
+            <td>79.63</td><td>16.13</td>
+            <td>93.08</td><td>99.79</td><td>99.32</td>
+            <td class="avg-col">72.32</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p style="font-size:0.82rem;color:var(--ink-soft);margin-top:0.5rem;text-align:center;">
+    StreamMA rows shaded; numbers reproduce Tab.&nbsp;1 of the paper.
+  </p>
+</section>
+
+<div class="divider-rule"></div>
+
+<div class="result-group-header">
+  <span class="result-group-label">Results &middot; Part 2</span>
+  <h3>Efficiency — Stream is faster & cheaper</h3>
+</div>
+
+<!-- ================== SCALING LAW ================== -->
+<section id="scaling" class="section-block">
+  <h2 class="section-title">Step-level scaling law — a new orthogonal dimension</h2>
+  <p class="section-sub">
+    At fixed agent count $A$, simply asking each agent to think in <em>more</em> finer
+    steps $S$ improves both speed and accuracy.<br>
+    Fully composable with agent-count scaling.
+  </p>
+  <div class="scaling-grid">
+    <div class="scaling-card">
+      <h4>Speedup vs steps S (log-log)</h4>
+      <svg id="scaling-speedup-svg" preserveAspectRatio="xMidYMid meet" style="width:100%;height:auto;"></svg>
+    </div>
+    <div class="scaling-card">
+      <h4>Accuracy heatmap on HMMT 2026</h4>
+      <svg id="scaling-heatmap-svg" preserveAspectRatio="xMidYMid meet" style="width:100%;height:auto;"></svg>
+    </div>
+  </div>
+  <p style="font-size:0.92rem;color:var(--ink-soft);margin-top:0.7rem;text-align:center;">
+    GPT-5.4-medium · A=64, S=auto baseline 68.2% → S=64 lifts to <strong>73.5%</strong> with <strong>26.9× speedup</strong>.
+  </p>
+</section>
+
+<div class="divider-rule"></div>
+
+<!-- ================== PARETO ================== -->
+<section id="pareto" class="section-block">
+  <h2 class="section-title">Cost–accuracy Pareto — Stream strictly dominates</h2>
+  <p class="section-sub">
+    Three-agent chain on HMMT 2026 with majority voting over $N\!\in\!\{1,4,16\}$ replicas. Claude Opus 4.6 pricing.
+  </p>
+  <div class="pareto-wrap">
+    <svg id="pareto-svg" preserveAspectRatio="xMidYMid meet" style="width:100%;height:auto;"></svg>
+    <div class="pareto-callout">
+      <strong>Stream×4 ($2.75, 90.9%)</strong> beats <strong>Serial×16 ($5.46, 89.4%)</strong> —
+      half the cost, higher accuracy. With KV-cache hits, the same 90.9% drops to <strong>$1.61</strong>.
+    </div>
+  </div>
+</section>
+
+<div class="divider-rule"></div>
+
+<!-- ================== BIBTEX ================== -->
+<section id="bibtex" class="section-block">
+  <h2 class="section-title">BibTeX</h2>
+  <div class="bibtex-wrap">
+    <button class="bibtex-copy" onclick="(function(b){const p=b.parentElement.querySelector('pre');navigator.clipboard.writeText(p.innerText);b.innerText='copied!';setTimeout(()=>b.innerText='copy',1500);})(this)">copy</button>
+<pre id="bibtex-block">@article{yang2026streamma,
+  title={StreamMA: Streaming Communication in Multi-Agent Reasoning},
+  author={Yang, Zhen and Xu, Xiaogang and Wang, Wen and Chen, Cong and Xu, Xander and Chen, Ying-Cong},
+  journal={arXiv preprint arXiv:26xx.xxxxx},
+  year={2026}
+}</pre>
+  </div>
+</section>
+
+<!-- ================== FOOTER ================== -->
+<footer class="page-footer">
+  <p style="margin-bottom:0.6rem;">
+    <img src="static/images/favicon.svg?v=13" alt="" class="footer-logo" />
+  </p>
+  <p style="margin-top:0.4rem;">
+    © 2026 StreamMA authors · Contact: <a href="mailto:zheny.cs@gmail.com">zheny.cs@gmail.com</a>
+  </p>
+</footer>
+
+<!-- ================== Scripts ================== -->
+<div id="chart-tooltip" role="tooltip"></div>
+<script src="static/js/hero_timeline.js?v=30"></script>
+<script src="static/js/perturbation.js?v=11"></script>
+<script src="static/js/scaling_heatmap.js?v=8"></script>
+<script src="static/js/pareto.js?v=4"></script>
+
+</body>
+</html>
