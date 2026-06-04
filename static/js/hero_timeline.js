@@ -469,9 +469,10 @@
     });
 
     // 4. Schedule each agent's step blocks under the causal constraint.
-    // StreamMA protocol: a downstream agent starts processing as soon as ANY
-    // upstream sends a step (queue-based, not barrier-based). So we use
-    // Math.min across predecessors' step[k] end times.
+    // StreamMA protocol: queue-based FIFO — downstream processes messages in
+    // arrival order. For multi-predecessor nodes we collect all upstream step
+    // end times, sort them, and use the k-th arrival as the constraint for
+    // the k-th downstream step.
     const sched = {};
     data.agents.forEach(name => {
       sched[name] = [];
@@ -479,26 +480,38 @@
       const ownEntry = segs.length ? segs[0][0] : 0;
       const stepDur = stepDurOf[name];
       const N = stepNof[name];
-      for (let k = 0; k < N; k++) {
-        let start = (k === 0) ? ownEntry : sched[name][k - 1][1];
-        // Find earliest upstream step that feeds this agent's step k.
-        // Each predecessor with stepNof[u] steps feeds segments round-robin.
-        const depEnds = [];
+      if (deps[name].length > 1) {
+        // Multi-predecessor: FIFO arrival ordering
+        const arrivals = [];
         deps[name].forEach(u => {
-          // Map: agent step k corresponds to upstream step floor(k * stepNof[u] / N)
-          // Simpler: predecessors send their steps sequentially to the queue.
-          // The k-th message to arrive is from whichever predecessor finishes next.
-          if (sched[u] && sched[u].length > 0) {
-            // For step k, the relevant upstream step index
-            const uN = stepNof[u];
-            const uK = Math.min(k, uN - 1);
-            if (sched[u][uK]) depEnds.push(sched[u][uK][1]);
+          const uN = stepNof[u];
+          for (let k = 0; k < uN; k++) {
+            if (sched[u] && sched[u][k]) arrivals.push(sched[u][k][1]);
           }
         });
-        if (depEnds.length > 0) {
-          start = Math.max(start, Math.min(...depEnds));
+        arrivals.sort((a, b) => a - b);
+        for (let k = 0; k < N; k++) {
+          let start = (k === 0) ? ownEntry : sched[name][k - 1][1];
+          if (k < arrivals.length) start = Math.max(start, arrivals[k]);
+          sched[name].push([start, start + stepDur]);
         }
-        sched[name].push([start, start + stepDur]);
+      } else {
+        // Single or no predecessor: original formula
+        for (let k = 0; k < N; k++) {
+          let start = (k === 0) ? ownEntry : sched[name][k - 1][1];
+          const depEnds = [];
+          deps[name].forEach(u => {
+            if (sched[u] && sched[u].length > 0) {
+              const uN = stepNof[u];
+              const uK = Math.min(k, uN - 1);
+              if (sched[u][uK]) depEnds.push(sched[u][uK][1]);
+            }
+          });
+          if (depEnds.length > 0) {
+            start = Math.max(start, Math.min(...depEnds));
+          }
+          sched[name].push([start, start + stepDur]);
+        }
       }
     });
 
@@ -561,9 +574,29 @@
     });
 
     // Diagonal forward edges: src.step[k] → dst's corresponding step.
-    // StreamMA queue semantics: whoever finishes first gets processed first.
-    // So we sort predecessors by their first step end time to determine the
-    // mapping order (faster predecessor fills earlier dst slots).
+    // StreamMA queue semantics: FIFO — messages are processed in arrival order.
+    // We build a mapping based on when each upstream step finishes (arrival
+    // time at the downstream queue), then draw arrows accordingly.
+    const fifoArrivalMap = {};
+    data.agents.forEach(dstKey => {
+      if (deps[dstKey].length <= 1) return;
+      const arrivals = [];
+      deps[dstKey].forEach(srcKey => {
+        const srcN = stepNof[srcKey];
+        for (let k = 0; k < srcN; k++) {
+          if (sched[srcKey] && sched[srcKey][k]) {
+            arrivals.push({ time: sched[srcKey][k][1], src: srcKey, k });
+          }
+        }
+      });
+      arrivals.sort((a, b) => a.time - b.time);
+      fifoArrivalMap[dstKey] = {};
+      deps[dstKey].forEach(s => { fifoArrivalMap[dstKey][s] = []; });
+      arrivals.forEach((arr, idx) => {
+        fifoArrivalMap[dstKey][arr.src].push(idx);
+      });
+    });
+
     const fwdEdges = (DAG_DEFS[currentTopo] || {}).edges || [];
     fwdEdges.forEach(edgeDef => {
       const [srcKey, dstKey] = edgeDef;
@@ -578,25 +611,20 @@
       const dir = ySrcTop < yDstTop ? 1 : -1;
       const ySrcEdge = dir > 0 ? ySrcTop + trackH : ySrcTop;
       const yDstEdge = dir > 0 ? yDstTop - 1 : yDstTop + trackH + 1;
-      // Sort predecessors by first step end time (faster first)
-      const dstDeps = deps[dstKey];
-      const sortedDeps = [...dstDeps].sort((a, b) => {
-        const aEnd = sched[a] && sched[a][0] ? sched[a][0][1] : Infinity;
-        const bEnd = sched[b] && sched[b][0] ? sched[b][0][1] : Infinity;
-        return aEnd - bEnd;
-      });
-      let dstOffset = 0;
-      for (const d of sortedDeps) {
-        if (d === srcKey) break;
-        dstOffset += stepNof[d];
-      }
       const srcN = stepNof[srcKey];
       for (let k = 0; k < srcN; k++) {
         const src = stepIdx[srcKey][k];
-        const dst = stepIdx[dstKey][dstOffset + k];
+        // Use FIFO mapping for multi-predecessor; direct 1:1 for single
+        let dstK;
+        if (fifoArrivalMap[dstKey] && fifoArrivalMap[dstKey][srcKey]) {
+          dstK = fifoArrivalMap[dstKey][srcKey][k];
+        } else {
+          dstK = k;
+        }
+        const dst = stepIdx[dstKey][dstK];
         if (!src || !dst) continue;
         const x1 = margin.left + (src.stepStart + src.stepEnd) / 2 * xScale;
-        const x2 = margin.left + (dst.stepStart + dst.stepEnd) / 2 * xScale;
+        const x2 = margin.left + dst.stepStart * xScale;
         const baseLine = el('line', {
           x1, y1: ySrcEdge, x2, y2: yDstEdge,
           stroke: srcPal.dark, 'stroke-width': 1.8,
