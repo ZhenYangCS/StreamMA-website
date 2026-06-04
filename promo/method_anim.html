@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  width: 960px; height: 540px;
+  background: #ffffff;
+  font-family: -apple-system, 'Helvetica Neue', sans-serif;
+  overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
+}
+.canvas {
+  width: 900px; height: 500px;
+  position: relative;
+}
+
+/* Title */
+.title {
+  position: absolute; top: 12px; left: 50%;
+  transform: translateX(-50%);
+  font-size: 28px; font-weight: 800; color: #1a1a1a;
+  letter-spacing: -0.5px;
+  opacity: 0;
+  animation: fadeIn 0.6s 0.3s forwards;
+}
+.title .accent { color: #2a7d5a; }
+
+/* Section labels */
+.label {
+  position: absolute; left: 36px;
+  font-size: 18px; font-weight: 700; letter-spacing: 0.5px;
+}
+.label-serial { top: 72px; color: #888; }
+.label-stream { top: 290px; color: #2a7d5a; }
+
+/* Agent lanes */
+.lane {
+  position: absolute; height: 36px; left: 140px;
+  display: flex; gap: 3px; align-items: center;
+}
+/* Serial lanes */
+.s-a { top: 100px; }
+.s-b { top: 148px; }
+.s-c { top: 196px; }
+/* Stream lanes */
+.st-a { top: 318px; }
+.st-b { top: 366px; }
+.st-c { top: 414px; }
+
+/* Step blocks */
+.step {
+  width: 0; height: 36px; border-radius: 6px;
+  opacity: 0;
+}
+/* Agent colors */
+.agent-a { background: #7fb5d9; }
+.agent-b { background: #7ec3a0; }
+.agent-c { background: #e9c373; }
+.agent-grey { background: #ccc; }
+
+/* Serial steps: appear one after another, no overlap */
+/* A steps (each 140px wide, appear at 1s, 2s, 3s, 4s) */
+.s-a .step:nth-child(1) { animation: growStep 0.7s 1.0s forwards; }
+.s-a .step:nth-child(2) { animation: growStep 0.7s 1.8s forwards; }
+.s-a .step:nth-child(3) { animation: growStep 0.7s 2.6s forwards; }
+
+.s-b .step:nth-child(1) { animation: growStep 0.7s 3.5s forwards; }
+.s-b .step:nth-child(2) { animation: growStep 0.7s 4.3s forwards; }
+.s-b .step:nth-child(3) { animation: growStep 0.7s 5.1s forwards; }
+
+.s-c .step:nth-child(1) { animation: growStep 0.7s 5.9s forwards; }
+.s-c .step:nth-child(2) { animation: growStep 0.7s 6.7s forwards; }
+.s-c .step:nth-child(3) { animation: growStep 0.7s 7.5s forwards; }
+
+/* Stream steps: overlapping, cascaded */
+.st-a .step:nth-child(1) { animation: growStep 0.7s 1.0s forwards; }
+.st-a .step:nth-child(2) { animation: growStep 0.7s 1.8s forwards; }
+.st-a .step:nth-child(3) { animation: growStep 0.7s 2.6s forwards; }
+
+.st-b .step:nth-child(1) { animation: growStep 0.7s 1.9s forwards; }
+.st-b .step:nth-child(2) { animation: growStep 0.7s 2.7s forwards; }
+.st-b .step:nth-child(3) { animation: growStep 0.7s 3.5s forwards; }
+
+.st-c .step:nth-child(1) { animation: growStep 0.7s 2.8s forwards; }
+.st-c .step:nth-child(2) { animation: growStep 0.7s 3.6s forwards; }
+.st-c .step:nth-child(3) { animation: growStep 0.7s 4.4s forwards; }
+
+/* Forward arrows (Stream only) */
+.arrow {
+  position: absolute;
+  width: 2px; height: 0;
+  background: #2a7d5a;
+  opacity: 0;
+  transform-origin: top center;
+}
+.arrow::after {
+  content: '';
+  position: absolute; bottom: -6px; left: -4px;
+  width: 0; height: 0;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 7px solid #2a7d5a;
+}
+/* A→B arrows */
+.arr-ab-1 { left: 230px; top: 354px; transform: rotate(15deg); animation: growArrow 0.3s 1.8s forwards; }
+.arr-ab-2 { left: 370px; top: 354px; transform: rotate(15deg); animation: growArrow 0.3s 2.6s forwards; }
+/* B→C arrows */
+.arr-bc-1 { left: 310px; top: 402px; transform: rotate(15deg); animation: growArrow 0.3s 2.7s forwards; }
+.arr-bc-2 { left: 450px; top: 402px; transform: rotate(15deg); animation: growArrow 0.3s 3.5s forwards; }
+
+/* Speedup badge */
+.speedup {
+  position: absolute; right: 50px; top: 460px;
+  background: #2a7d5a; color: #fff;
+  font-size: 20px; font-weight: 700;
+  padding: 8px 22px; border-radius: 999px;
+  opacity: 0;
+  animation: popIn 0.5s 5.0s forwards;
+}
+
+/* Serial end marker */
+.serial-end {
+  position: absolute; right: 50px; top: 230px;
+  color: #999; font-size: 15px; font-weight: 600;
+  opacity: 0;
+  animation: fadeIn 0.4s 8.3s forwards;
+}
+.stream-end {
+  position: absolute; right: 50px; top: 326px;
+  color: #2a7d5a; font-size: 15px; font-weight: 600;
+  opacity: 0;
+  animation: fadeIn 0.4s 5.2s forwards;
+}
+
+/* Agent labels */
+.agent-label {
+  position: absolute; left: 100px;
+  font-size: 13px; font-weight: 600; color: #555;
+  width: 30px; text-align: right;
+}
+
+/* Timeline bracket */
+.bracket-serial {
+  position: absolute; right: 30px; top: 96px;
+  width: 3px; height: 142px;
+  border-right: 2.5px solid #ccc;
+  border-top: 2.5px solid #ccc;
+  border-bottom: 2.5px solid #ccc;
+  border-radius: 0 4px 4px 0;
+  opacity: 0;
+  animation: fadeIn 0.4s 8.3s forwards;
+}
+.bracket-stream {
+  position: absolute; right: 30px; top: 314px;
+  width: 3px; height: 142px;
+  border-right: 2.5px solid #2a7d5a;
+  border-top: 2.5px solid #2a7d5a;
+  border-bottom: 2.5px solid #2a7d5a;
+  border-radius: 0 4px 4px 0;
+  opacity: 0;
+  animation: fadeIn 0.4s 5.2s forwards;
+}
+
+/* Keyframes */
+@keyframes fadeIn {
+  to { opacity: 1; }
+}
+@keyframes growStep {
+  0% { width: 0; opacity: 0.3; }
+  30% { opacity: 1; }
+  100% { width: 140px; opacity: 1; }
+}
+@keyframes growArrow {
+  0% { height: 0; opacity: 0; }
+  100% { height: 30px; opacity: 0.7; }
+}
+@keyframes popIn {
+  0% { opacity: 0; transform: scale(0.6); }
+  60% { transform: scale(1.1); }
+  100% { opacity: 1; transform: scale(1); }
+}
+</style>
+</head>
+<body>
+<div class="canvas">
+  <div class="title"><span class="accent">Stream</span>MA — Step-level Forwarding</div>
+
+  <!-- Serial Section -->
+  <div class="label label-serial">Serial</div>
+  <div class="agent-label" style="top:108px;">A</div>
+  <div class="agent-label" style="top:156px;">B</div>
+  <div class="agent-label" style="top:204px;">C</div>
+  <div class="lane s-a">
+    <div class="step agent-grey"></div>
+    <div class="step agent-grey"></div>
+    <div class="step agent-grey"></div>
+  </div>
+  <div class="lane s-b">
+    <div class="step agent-grey"></div>
+    <div class="step agent-grey"></div>
+    <div class="step agent-grey"></div>
+  </div>
+  <div class="lane s-c">
+    <div class="step agent-grey"></div>
+    <div class="step agent-grey"></div>
+    <div class="step agent-grey"></div>
+  </div>
+  <div class="bracket-serial"></div>
+  <div class="serial-end">8.2 s</div>
+
+  <!-- Divider -->
+  <div style="position:absolute;left:60px;right:60px;top:265px;height:1px;background:#e0e0e0;"></div>
+
+  <!-- Stream Section -->
+  <div class="label label-stream">Stream</div>
+  <div class="agent-label" style="top:326px;color:#4a90b8;">A</div>
+  <div class="agent-label" style="top:374px;color:#3d9470;">B</div>
+  <div class="agent-label" style="top:422px;color:#b8922a;">C</div>
+  <div class="lane st-a">
+    <div class="step agent-a"></div>
+    <div class="step agent-a"></div>
+    <div class="step agent-a"></div>
+  </div>
+  <div class="lane st-b">
+    <div class="step agent-b"></div>
+    <div class="step agent-b"></div>
+    <div class="step agent-b"></div>
+  </div>
+  <div class="lane st-c">
+    <div class="step agent-c"></div>
+    <div class="step agent-c"></div>
+    <div class="step agent-c"></div>
+  </div>
+
+  <!-- Forward arrows -->
+  <div class="arrow arr-ab-1"></div>
+  <div class="arrow arr-ab-2"></div>
+  <div class="arrow arr-bc-1"></div>
+  <div class="arrow arr-bc-2"></div>
+
+  <div class="bracket-stream"></div>
+  <div class="stream-end">4.5 s</div>
+  <div class="speedup">1.84× faster</div>
+</div>
+</body>
+</html>

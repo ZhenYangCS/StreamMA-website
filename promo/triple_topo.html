@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  width: 960px; height: 780px;
+  background: #f8fdf9;
+  font-family: -apple-system, 'Helvetica Neue', sans-serif;
+  overflow: hidden;
+}
+svg { display: block; width: 960px; height: 780px; }
+</style>
+</head>
+<body>
+<svg id="canvas" viewBox="0 0 960 780" xmlns="http://www.w3.org/2000/svg">
+</svg>
+<script>
+(function() {
+const NS = 'http://www.w3.org/2000/svg';
+const svg = document.getElementById('canvas');
+
+// ===== DATA (from hero_timeline.js) =====
+const TOPOS = [
+  {
+    key: 'chain', title: 'Chain', dagLabel: 'A \u2192 B \u2192 C \u2192 D',
+    speedup: 1.84, api_time: 261.99, wall_time: 142.57,
+    agents: ['Agent_A','Agent_B','Agent_C','Agent_D'],
+    serial: [
+      { agent:'Agent_A', start:0, end:31.48 },
+      { agent:'Agent_B', start:31.48, end:100.87 },
+      { agent:'Agent_C', start:100.87, end:186.28 },
+      { agent:'Agent_D', start:186.28, end:261.99 },
+    ],
+    stream: {
+      Agent_A: [[2.85,37.07]], Agent_B: [[17.11,88.39]],
+      Agent_C: [[31.37,119.76]], Agent_D: [[62.73,142.57]],
+    },
+    edges: [['Agent_A','Agent_B'],['Agent_B','Agent_C'],['Agent_C','Agent_D']],
+  },
+  {
+    key: 'tree', title: 'Tree', dagLabel: 'A \u2192 {B, C} \u2192 D',
+    speedup: 1.82, api_time: 640.98, wall_time: 317.41,
+    agents: ['Agent_A','Agent_B','Agent_C','Agent_D'],
+    serial: [
+      { agent:'Agent_A', start:0, end:32.40 },
+      { agent:'Agent_B', start:32.40, end:276.99 },
+      { agent:'Agent_C', start:32.40, end:94.80 },
+      { agent:'Agent_D', start:276.99, end:578.57 },
+    ],
+    stream: {
+      Agent_A: [[0,38.09]], Agent_B: [[6.35,253.93]],
+      Agent_C: [[6.35,69.83]], Agent_D: [[12.70,317.41]],
+    },
+    edges: [['Agent_A','Agent_B'],['Agent_A','Agent_C'],['Agent_B','Agent_D'],['Agent_C','Agent_D']],
+  },
+  {
+    key: 'graph', title: 'Graph', dagLabel: 'A \u2192 B \u2192 C \u2192 D, A \u2192 C',
+    speedup: 1.92, api_time: 452.23, wall_time: 235.45,
+    agents: ['Agent_A','Agent_B','Agent_C','Agent_D'],
+    serial: [
+      { agent:'Agent_A', start:0, end:59.30 },
+      { agent:'Agent_B', start:59.30, end:116.99 },
+      { agent:'Agent_C', start:116.99, end:298.27 },
+      { agent:'Agent_D', start:298.27, end:452.23 },
+    ],
+    stream: {
+      Agent_A: [[0,65.93]], Agent_B: [[23.54,94.18]],
+      Agent_C: [[23.54,37.67],[42.38,221.32]], Agent_D: [[32.96,174.23],[216.61,235.45]],
+    },
+    edges: [['Agent_A','Agent_B'],['Agent_B','Agent_C'],['Agent_C','Agent_D'],['Agent_A','Agent_C']],
+  },
+];
+
+const PAL = {
+  Agent_A: { mid:'#7fb5d9', dark:'#2c6ea3', light:'#dbeaf5' },
+  Agent_B: { mid:'#7ec3a0', dark:'#2f9e6e', light:'#d6ecdf' },
+  Agent_C: { mid:'#e9c373', dark:'#b88528', light:'#f6e8c7' },
+  Agent_D: { mid:'#e8a085', dark:'#c25a36', light:'#f6dccd' },
+};
+
+const STEPS = 3;
+const LOOP_MS = 7000;
+const barH = 14;
+const laneGap = 4;
+const chartLeft = 120;
+const chartRight = 40;
+const chartW = 960 - chartLeft - chartRight;
+
+function el(tag, attrs, parent) {
+  const e = document.createElementNS(NS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  if (parent) parent.appendChild(e);
+  return e;
+}
+
+// ===== Title =====
+el('text', { x: 480, y: 32, 'text-anchor':'middle', 'font-size':22, 'font-weight':800, fill:'#1a1a1a' }, svg).textContent = 'StreamMA \u2014 Step-level Forwarding';
+
+// ===== Build each topology section =====
+const sections = []; // [{serialBars, streamBars, arrows, serialMax, wallTime}]
+const sectionY0 = [52, 296, 540]; // y offset for each topo section
+const sectionH = 234;
+
+TOPOS.forEach((topo, ti) => {
+  const y0 = sectionY0[ti];
+  const g = el('g', { transform: `translate(0, ${y0})` }, svg);
+
+  // Section header
+  el('text', { x: 16, y: 18, 'font-size':15, 'font-weight':700, fill:'#2a7d5a' }, g).textContent = topo.title;
+  el('text', { x: 70, y: 18, 'font-size':12, fill:'#666' }, g).textContent = topo.dagLabel;
+
+  // Speedup badge
+  const badge = el('g', { transform: 'translate(830, 5)' }, g);
+  el('rect', { x:0, y:0, width:95, height:24, rx:12, fill:'#2a7d5a' }, badge);
+  el('text', { x:48, y:16, 'text-anchor':'middle', 'font-size':12, 'font-weight':700, fill:'#fff' }, badge).textContent = topo.speedup.toFixed(2) + '\u00d7 faster';
+
+  // === Serial ===
+  const serialY0 = 36;
+  el('text', { x: 16, y: serialY0 + 10, 'font-size':11, 'font-weight':600, fill:'#888' }, g).textContent = 'Serial';
+  const serialMax = Math.max(...topo.serial.map(s => s.end));
+  const sScale = chartW / serialMax;
+  const serialBars = [];
+
+  topo.serial.forEach((seg, i) => {
+    const pal = PAL[seg.agent];
+    const x = chartLeft + seg.start * sScale;
+    const w = (seg.end - seg.start) * sScale;
+    const y = serialY0 + i * (barH + laneGap);
+    // Agent label
+    el('text', { x: chartLeft - 6, y: y + barH/2 + 3, 'text-anchor':'end', 'font-size':9.5, fill:'#555' }, g).textContent = seg.agent.replace('Agent_', '');
+    // Backdrop
+    el('rect', { x, y, width: w, height: barH, rx: 3, fill: pal.light, opacity: 0.7 }, g);
+    // Animated fill
+    const bar = el('rect', { x, y, width: 0, height: barH, rx: 3, fill: pal.mid }, g);
+    serialBars.push({ bar, x, fullW: w, start: seg.start, end: seg.end });
+  });
+
+  // === Stream ===
+  const streamY0 = serialY0 + 4 * (barH + laneGap) + 16;
+  el('text', { x: 16, y: streamY0 + 10, 'font-size':11, 'font-weight':600, fill:'#2a7d5a' }, g).textContent = 'Stream';
+  const wScale = chartW / topo.wall_time;
+  const streamBars = [];
+
+  topo.agents.forEach((agent, i) => {
+    const pal = PAL[agent];
+    const segs = topo.stream[agent] || [];
+    const y = streamY0 + i * (barH + laneGap);
+    // Agent label
+    el('text', { x: chartLeft - 6, y: y + barH/2 + 3, 'text-anchor':'end', 'font-size':9.5, fill:'#555' }, g).textContent = agent.replace('Agent_', '');
+
+    segs.forEach(([s, e]) => {
+      const x = chartLeft + s * wScale;
+      const w = (e - s) * wScale;
+      // Step subdivision
+      const stepW = w / STEPS;
+      for (let k = 0; k < STEPS; k++) {
+        const sx = x + k * stepW;
+        // Backdrop
+        el('rect', { x: sx + 0.5, y, width: stepW - 1, height: barH, rx: 3, fill: pal.light, opacity: 0.7 }, g);
+        // Animated fill
+        const bar = el('rect', { x: sx + 0.5, y, width: 0, height: barH, rx: 3, fill: pal.mid }, g);
+        const stepStart = s + (e - s) * k / STEPS;
+        const stepEnd = s + (e - s) * (k + 1) / STEPS;
+        streamBars.push({ bar, fullW: stepW - 1, start: stepStart, end: stepEnd });
+      }
+      // Step labels
+      for (let k = 0; k < STEPS; k++) {
+        const sx = x + k * stepW;
+        const lbl = el('text', {
+          x: sx + stepW/2, y: y + barH/2 + 3.5,
+          'text-anchor':'middle', 'font-size': 8, fill: pal.dark,
+          'pointer-events':'none', opacity: 0
+        }, g);
+        lbl.textContent = agent.replace('Agent_','').charAt(0) + (k+1);
+        const stepStart = s + (e - s) * k / STEPS;
+        const stepEnd = s + (e - s) * (k + 1) / STEPS;
+        streamBars.push({ bar: lbl, isLabel: true, start: stepStart, end: stepEnd });
+      }
+    });
+  });
+
+  // Time markers
+  const serialEndX = chartLeft + chartW;
+  el('text', { x: serialEndX + 4, y: serialY0 + 3.5*(barH+laneGap) + barH/2, 'font-size':9, fill:'#999' }, g).textContent = Math.round(serialMax) + ' s';
+  const streamEndX = chartLeft + topo.wall_time * wScale;
+  el('line', { x1: streamEndX, y1: streamY0 - 2, x2: streamEndX, y2: streamY0 + 4*(barH+laneGap), stroke:'#2a7d5a', 'stroke-width':1, 'stroke-dasharray':'3 2', opacity:0.5 }, g);
+  el('text', { x: streamEndX, y: streamY0 + 4*(barH+laneGap) + 12, 'text-anchor':'middle', 'font-size':9, fill:'#2a7d5a' }, g).textContent = Math.round(topo.wall_time) + ' s';
+
+  sections.push({ serialBars, streamBars, serialMax, wallTime: topo.wall_time });
+});
+
+// Separator lines between sections
+el('line', { x1:30, y1:290, x2:930, y2:290, stroke:'#e0e0e0', 'stroke-width':1 }, svg);
+el('line', { x1:30, y1:534, x2:930, y2:534, stroke:'#e0e0e0', 'stroke-width':1 }, svg);
+
+// ===== Animation =====
+let t0 = null;
+function step(now) {
+  if (t0 === null) t0 = now;
+  let t = ((now - t0) % (LOOP_MS + 1200)) / LOOP_MS; // 1200ms pause between loops
+  if (t > 1) t = 1; // hold at 1 during pause
+
+  sections.forEach(sec => {
+    const serialCursor = t * sec.serialMax;
+    sec.serialBars.forEach(b => {
+      const progress = Math.max(0, Math.min(1, (serialCursor - b.start) / (b.end - b.start)));
+      b.bar.setAttribute('width', progress * b.fullW);
+    });
+
+    const streamCursor = t * sec.wallTime;
+    sec.streamBars.forEach(b => {
+      if (b.isLabel) {
+        const done = streamCursor >= b.end;
+        b.bar.setAttribute('opacity', done ? 0.85 : 0);
+        return;
+      }
+      const progress = Math.max(0, Math.min(1, (streamCursor - b.start) / (b.end - b.start)));
+      b.bar.setAttribute('width', progress * b.fullW);
+    });
+  });
+
+  requestAnimationFrame(step);
+}
+requestAnimationFrame(step);
+})();
+</script>
+</body>
+</html>
