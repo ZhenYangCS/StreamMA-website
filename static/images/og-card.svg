@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="630" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#34a878"/>
+      <stop offset="1" stop-color="#0a3320"/>
+    </linearGradient>
+    <linearGradient id="card" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.10"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0.02"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="630" fill="url(#bg)"/>
+
+  <!-- Subtle grid texture -->
+  <g opacity="0.06" stroke="#ffffff" stroke-width="1">
+    <path d="M0 105 H1200 M0 210 H1200 M0 315 H1200 M0 420 H1200 M0 525 H1200"/>
+    <path d="M150 0 V630 M300 0 V630 M450 0 V630 M600 0 V630 M750 0 V630 M900 0 V630 M1050 0 V630"/>
+  </g>
+
+  <!-- ===== Logo: streaming bars cascade ===== -->
+  <!-- Scaled up from favicon: 192×192 logo at top-left of content area.
+       Equal-length bars (120 px) cascading by 24 px. -->
+  <g transform="translate(96, 96)">
+    <rect width="192" height="192" rx="42" fill="#0e2b1c" stroke="#ffffff" stroke-opacity="0.18" stroke-width="2"/>
+    <!-- Agent A -->
+    <rect x="12" y="42" width="120" height="24" rx="12" fill="#ffffff" opacity="0.18"/>
+    <rect x="12" y="42" width="84"  height="24" rx="12" fill="#7fb5d9"/>
+    <!-- Agent B -->
+    <rect x="36" y="84" width="120" height="24" rx="12" fill="#ffffff" opacity="0.18"/>
+    <rect x="36" y="84" width="66"  height="24" rx="12" fill="#7ec3a0"/>
+    <!-- Agent C -->
+    <rect x="60" y="126" width="120" height="24" rx="12" fill="#ffffff" opacity="0.18"/>
+    <rect x="60" y="126" width="42"  height="24" rx="12" fill="#e9c373"/>
+    <!-- Pulse cursors with halo -->
+    <circle cx="96"  cy="54"  r="14" fill="#ffffff" opacity="0.22"/>
+    <circle cx="102" cy="96"  r="14" fill="#ffffff" opacity="0.22"/>
+    <circle cx="102" cy="138" r="14" fill="#ffffff" opacity="0.22"/>
+    <circle cx="96"  cy="54"  r="6" fill="#ffffff"/>
+    <circle cx="102" cy="96"  r="6" fill="#ffffff"/>
+    <circle cx="102" cy="138" r="6" fill="#ffffff"/>
+  </g>
+
+  <!-- ===== Title block ===== -->
+  <text x="324" y="180" font-family="'Inter', 'Helvetica Neue', sans-serif" font-weight="800" font-size="108" letter-spacing="-3" fill="#ffffff">
+    <tspan fill="#7fe3b8">Stream</tspan><tspan>MA</tspan>
+  </text>
+  <text x="324" y="240" font-family="'Noto Serif', Georgia, serif" font-style="italic" font-size="36" fill="#cdeedb">
+    Streaming Communication in Multi-Agent Reasoning
+  </text>
+
+  <!-- ===== Three signature stats ===== -->
+  <g transform="translate(96, 350)">
+    <!-- Card A -->
+    <rect x="0"   y="0" width="320" height="180" rx="22" fill="url(#card)" stroke="#ffffff" stroke-opacity="0.22"/>
+    <text x="160" y="78"  text-anchor="middle" font-family="'Inter', sans-serif" font-weight="800" font-size="68" fill="#ffffff">90.0%</text>
+    <text x="160" y="120" text-anchor="middle" font-family="'Inter', sans-serif" font-weight="600" font-size="22" fill="#cdeedb">SimpleBench SOTA</text>
+    <text x="160" y="150" text-anchor="middle" font-family="'Inter', sans-serif" font-size="18" fill="#9ec9b3">vs Gemini 3.1 Pro 79.6%</text>
+
+    <!-- Card B -->
+    <rect x="344" y="0" width="320" height="180" rx="22" fill="url(#card)" stroke="#ffffff" stroke-opacity="0.22"/>
+    <text x="504" y="78"  text-anchor="middle" font-family="'Inter', sans-serif" font-weight="800" font-size="68" fill="#ffffff">26.9×</text>
+    <text x="504" y="120" text-anchor="middle" font-family="'Inter', sans-serif" font-weight="600" font-size="22" fill="#cdeedb">Wall-clock Speedup</text>
+    <text x="504" y="150" text-anchor="middle" font-family="'Inter', sans-serif" font-size="18" fill="#9ec9b3">A=S=64 · 83% of bound</text>
+
+    <!-- Card C -->
+    <rect x="688" y="0" width="320" height="180" rx="22" fill="url(#card)" stroke="#ffffff" stroke-opacity="0.22"/>
+    <text x="848" y="78"  text-anchor="middle" font-family="'Inter', sans-serif" font-weight="800" font-size="68" fill="#ffffff">+7.3 pp</text>
+    <text x="848" y="120" text-anchor="middle" font-family="'Inter', sans-serif" font-weight="600" font-size="22" fill="#cdeedb">Avg Accuracy Gain</text>
+    <text x="848" y="150" text-anchor="middle" font-family="'Inter', sans-serif" font-size="18" fill="#9ec9b3">8 benchmarks · peak +22.4 pp</text>
+  </g>
+
+  <!-- Footer affiliations -->
+  <text x="600" y="590" text-anchor="middle" font-family="'Inter', sans-serif" font-size="20" fill="#cdeedb" letter-spacing="2">
+    HKUST(GZ)  ·  ZJU  ·  Alibaba
+  </text>
+</svg>
