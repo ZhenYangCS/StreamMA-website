@@ -435,48 +435,77 @@
     //
     // For every DAG edge u→v we draw a thin diagonal line from u.step[k].end
     // to v.step[k].start, visualising the forward and any backlog wait.
-    const STEP_N = 3;
+    const BASE_STEP_N = 3;
     const streamSteps = [];
     const stepLines = [];
     const stepIdx = {};
 
-    // 1. Per-agent step duration estimate.
-    const stepDurOf = {};
-    data.agents.forEach(name => {
-      const segs = data.stream[name] || [];
-      const busy = segs.reduce((a, [s, e]) => a + (e - s), 0);
-      stepDurOf[name] = busy > 0 ? busy / STEP_N : 1;
-    });
-
-    // 2. Build the dependency map (deps[v] = list of immediate upstream agents).
+    // 1. Build the dependency map (deps[v] = list of immediate upstream agents).
     const deps = {};
     data.agents.forEach(a => { deps[a] = []; });
     ((DAG_DEFS[currentTopo] || {}).edges || []).forEach(([s, d]) => {
       if (deps[d]) deps[d].push(s);
     });
 
-    // 3. Schedule each agent's step blocks under the causal constraint.
+    // 2. Compute per-agent step count.
+    // In StreamMA, each incoming message triggers one step() call.
+    // An agent's total steps = sum of all predecessors' step counts.
+    // Root agents have BASE_STEP_N = 3.
+    const stepNof = {};
+    data.agents.forEach(name => {
+      if (deps[name].length === 0) {
+        stepNof[name] = BASE_STEP_N;
+      } else {
+        stepNof[name] = deps[name].reduce((sum, u) => sum + (stepNof[u] || BASE_STEP_N), 0);
+      }
+    });
+
+    // 3. Per-agent step duration estimate.
+    const stepDurOf = {};
+    data.agents.forEach(name => {
+      const segs = data.stream[name] || [];
+      const busy = segs.reduce((a, [s, e]) => a + (e - s), 0);
+      stepDurOf[name] = busy > 0 ? busy / stepNof[name] : 1;
+    });
+
+    // 4. Schedule each agent's step blocks under the causal constraint.
+    // StreamMA protocol: a downstream agent starts processing as soon as ANY
+    // upstream sends a step (queue-based, not barrier-based). So we use
+    // Math.min across predecessors' step[k] end times.
     const sched = {};
     data.agents.forEach(name => {
       sched[name] = [];
       const segs = data.stream[name] || [];
       const ownEntry = segs.length ? segs[0][0] : 0;
       const stepDur = stepDurOf[name];
-      for (let k = 0; k < STEP_N; k++) {
+      const N = stepNof[name];
+      for (let k = 0; k < N; k++) {
         let start = (k === 0) ? ownEntry : sched[name][k - 1][1];
+        // Find earliest upstream step that feeds this agent's step k.
+        // Each predecessor with stepNof[u] steps feeds segments round-robin.
+        const depEnds = [];
         deps[name].forEach(u => {
-          if (sched[u] && sched[u][k]) {
-            start = Math.max(start, sched[u][k][1]);
+          // Map: agent step k corresponds to upstream step floor(k * stepNof[u] / N)
+          // Simpler: predecessors send their steps sequentially to the queue.
+          // The k-th message to arrive is from whichever predecessor finishes next.
+          if (sched[u] && sched[u].length > 0) {
+            // For step k, the relevant upstream step index
+            const uN = stepNof[u];
+            const uK = Math.min(k, uN - 1);
+            if (sched[u][uK]) depEnds.push(sched[u][uK][1]);
           }
         });
+        if (depEnds.length > 0) {
+          start = Math.max(start, Math.min(...depEnds));
+        }
         sched[name].push([start, start + stepDur]);
       }
     });
 
-    // 4. Rescale to fit data.wall_time (compress only, never stretch).
+    // 5. Rescale to fit data.wall_time (compress only, never stretch).
     let scheduledMax = 0;
     data.agents.forEach(name => {
-      const last = sched[name][STEP_N - 1];
+      const last = sched[name][stepNof[name] - 1];
       if (last && last[1] > scheduledMax) scheduledMax = last[1];
     });
     const tScale = (scheduledMax > 0 && data.wall_time > 0)
@@ -487,15 +516,16 @@
       });
     }
 
-    // 5. Render step blocks per agent.
+    // 6. Render step blocks per agent.
     const stepGap = 2.5;
     data.agents.forEach((name, idx) => {
       const segs = data.stream[name] || [];
       if (!segs.length) return;
       const pal = AGENT_PAL[name] || { mid: C.streamMid, dark: C.stream, text: '#0e3a26', light: C.streamLight };
       const y = trackY(idx, 1);
+      const N = stepNof[name];
       const sFirst = sched[name][0][0];
-      const sLast = sched[name][STEP_N - 1][1];
+      const sLast = sched[name][N - 1][1];
 
       // Light backdrop spanning the agent's scheduled span (agent-tinted)
       el('rect', {
@@ -505,10 +535,10 @@
       }, svg);
 
       stepIdx[name] = [];
-      for (let k = 0; k < STEP_N; k++) {
+      for (let k = 0; k < N; k++) {
         const [ss, se] = sched[name][k];
         const leftInset = k > 0 ? stepGap / 2 : 0;
-        const rightInset = k < STEP_N - 1 ? stepGap / 2 : 0;
+        const rightInset = k < N - 1 ? stepGap / 2 : 0;
         const x = margin.left + ss * xScale + leftInset;
         const fullW = Math.max(0, (se - ss) * xScale - leftInset - rightInset);
         const rect = el('rect', {
@@ -530,8 +560,10 @@
       }
     });
 
-    // Diagonal forward edges: src.step[k].end → dst.step[k].start, tinted by
-    // the upstream agent's palette so colour follows the data flow.
+    // Diagonal forward edges: src.step[k] → dst's corresponding step.
+    // StreamMA queue semantics: whoever finishes first gets processed first.
+    // So we sort predecessors by their first step end time to determine the
+    // mapping order (faster predecessor fills earlier dst slots).
     const fwdEdges = (DAG_DEFS[currentTopo] || {}).edges || [];
     fwdEdges.forEach(edgeDef => {
       const [srcKey, dstKey] = edgeDef;
@@ -546,17 +578,25 @@
       const dir = ySrcTop < yDstTop ? 1 : -1;
       const ySrcEdge = dir > 0 ? ySrcTop + trackH : ySrcTop;
       const yDstEdge = dir > 0 ? yDstTop - 1 : yDstTop + trackH + 1;
-      for (let k = 0; k < STEP_N; k++) {
+      // Sort predecessors by first step end time (faster first)
+      const dstDeps = deps[dstKey];
+      const sortedDeps = [...dstDeps].sort((a, b) => {
+        const aEnd = sched[a] && sched[a][0] ? sched[a][0][1] : Infinity;
+        const bEnd = sched[b] && sched[b][0] ? sched[b][0][1] : Infinity;
+        return aEnd - bEnd;
+      });
+      let dstOffset = 0;
+      for (const d of sortedDeps) {
+        if (d === srcKey) break;
+        dstOffset += stepNof[d];
+      }
+      const srcN = stepNof[srcKey];
+      for (let k = 0; k < srcN; k++) {
         const src = stepIdx[srcKey][k];
-        const dst = stepIdx[dstKey][k];
+        const dst = stepIdx[dstKey][dstOffset + k];
         if (!src || !dst) continue;
-        // Anchor the arrow at the horizontal midpoint of each step block so
-        // it visibly emerges from the centre of the source block and lands
-        // on the centre of the destination block, rather than poking out of
-        // the corner where it is hard to see.
         const x1 = margin.left + (src.stepStart + src.stepEnd) / 2 * xScale;
         const x2 = margin.left + (dst.stepStart + dst.stepEnd) / 2 * xScale;
-        // Base line: subtle connector
         const baseLine = el('line', {
           x1, y1: ySrcEdge, x2, y2: yDstEdge,
           stroke: srcPal.dark, 'stroke-width': 1.8,
@@ -564,16 +604,12 @@
           opacity: 0, 'pointer-events': 'none',
           class: 'flow-base',
         }, svg);
-        // Glow line: light-pulse
         const glowLine = el('line', {
           x1, y1: ySrcEdge, x2, y2: yDstEdge,
           stroke: srcPal.dark, 'stroke-width': 4,
           opacity: 0, 'pointer-events': 'none',
           class: 'flow-glow',
         }, svg);
-        // Visible from the moment the upstream finishes the step until the
-        // downstream finishes consuming it; disappears once the receiving
-        // step is done.
         stepLines.push({ line: baseLine, glow: glowLine, triggerSec: src.stepEnd, expireSec: dst.stepEnd });
       }
     });
