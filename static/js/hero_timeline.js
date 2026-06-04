@@ -347,6 +347,16 @@
       const y = trackY(idx, 0);
       const x0 = margin.left + seg.start * xScale;
       const totalW = (seg.end - seg.start) * xScale;
+      // Waiting/idle period: dashed outline from timeline start to this agent's start
+      if (seg.start > 0) {
+        el('rect', {
+          x: margin.left, y,
+          width: seg.start * xScale, height: trackH,
+          rx: 4, ry: 4,
+          fill: 'none', stroke: '#cbd5e1', 'stroke-width': 1,
+          'stroke-dasharray': '4 3', opacity: 0.7,
+        }, svg);
+      }
       // light backdrop showing full extent
       el('rect', {
         x: x0, y, width: totalW, height: trackH,
