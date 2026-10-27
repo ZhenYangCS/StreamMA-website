@@ -218,8 +218,9 @@ body {
 }
 
 /* ----- Presentation video ----- */
+#video .section-title { margin-bottom: 1.25rem; }
 .presentation-video-wrap {
-  max-width: 960px;
+  max-width: 840px;
   margin: 0 auto;
   overflow: hidden;
   border: 1px solid var(--rule);
@@ -227,11 +228,48 @@ body {
   background: #0f172a;
   box-shadow: 0 4px 20px rgba(47,158,110,0.06);
 }
+.presentation-video-preview {
+  display: block;
+  position: relative;
+}
+.presentation-video-preview img,
 .presentation-video-wrap video {
   display: block;
   width: 100%;
   height: auto;
   aspect-ratio: 16 / 9;
+}
+.presentation-video-play {
+  position: absolute;
+  bottom: 1.25rem;
+  left: 50%;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.65rem 1rem;
+  border-radius: 999px;
+  background: var(--stream-green-dark);
+  color: #fff;
+  font-size: 0.9rem;
+  font-weight: 600;
+  white-space: nowrap;
+  box-shadow: 0 3px 12px rgba(23,108,77,0.2);
+}
+.presentation-video-preview:hover .presentation-video-play,
+.presentation-video-preview:focus-visible .presentation-video-play {
+  background: var(--stream-green);
+}
+.presentation-video-preview:focus-visible {
+  outline: 3px solid var(--stream-green);
+  outline-offset: -4px;
+}
+@media (max-width: 480px) {
+  .presentation-video-play {
+    bottom: 0.5rem;
+    padding: 0.45rem 0.85rem;
+    font-size: 0.8rem;
+  }
 }
 .presentation-video-link {
   margin-top: 0.8rem;
