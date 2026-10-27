@@ -271,13 +271,6 @@ body {
     font-size: 0.8rem;
   }
 }
-.presentation-video-link {
-  margin-top: 0.8rem;
-  font-size: 0.9rem;
-  text-align: center;
-}
-.presentation-video-link a { color: var(--stream-green-dark); text-decoration: underline; }
-
 /* ----- TL;DR cards ----- */
 .tldr-grid {
   display: grid;
